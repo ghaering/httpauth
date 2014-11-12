@@ -1,13 +1,17 @@
 # goji/httpauth [![GoDoc](https://godoc.org/github.com/goji/httpauth?status.png)](https://godoc.org/github.com/goji/httpauth) [![Build Status](https://travis-ci.org/goji/httpauth.svg)](https://travis-ci.org/goji/httpauth)
 
-httpauth currently provides [HTTP Basic Authentication middleware for](http://tools.ietf.org/html/rfc2617) for Go. 
+httpauth currently provides [HTTP Basic Authentication middleware for](http://tools.ietf.org/html/rfc2617) for Go.
 
-Note that httpauth is completely compatible with [Goji](https://goji.io/), a minimal web framework for Go, but as it satisfies http.Handler it can be used beyond Goji itself. 
+Note that httpauth is completely compatible with [Goji](https://goji.io/), a minimal web framework for Go, but as it satisfies http.Handler it can be used beyond Goji itself.
 ## Example
 
 httpauth provides a `SimpleBasicAuth` function to get you up and running. Particularly ideal for development servers.
 
 Note that HTTP Basic Authentication credentials are sent over the wire "in the clear" (read: plaintext!) and therefore should not be considered a robust way to secure a HTTP server. If you're after that, you'll need to use SSL/TLS ("HTTPS") at a minimum.
+
+
+This version is forked by Gerhard Häring <gh@ghaering.de> to use a callback thet checks username/password instead of a
+single valid username/password combination.
 
 ### Goji
 
@@ -24,7 +28,9 @@ import(
 
 func main() {
 
-    goji.Use(httpauth.SimpleBasicAuth("dave", "somepassword"))
+    goji.Use(httpauth.SimpleBasicAuth(func(user string, password string) bool {
+			return user == "dave" && password == "secret"
+		}))
     goji.Use(SomeOtherMiddleware)
     // myHandler requires HTTP Basic Auth
     goji.Get("/thing", myHandler)
@@ -44,8 +50,9 @@ func main() {
 
     authOpts := httpauth.AuthOptions{
         Realm: "DevCo",
-        User: "dave",
-        Password: "plaintext!",
+        AuthFunc: func(user string, password string) bool {
+			return user == correctUser && password == correctPassword
+		},
         UnauthorizedHandler: myUnauthorizedHandler,
     }
 
@@ -75,7 +82,9 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", myHandler)
-	http.Handle("/", httpauth.SimpleBasicAuth("dave", "somepassword")(r))
+	http.Handle("/", httpauth.SimpleBasicAuth(func(user string, password string) bool {
+			return user == correctUser && password == correctPassword
+	})(r))
 
 	http.ListenAndServe(":7000", nil)
 }
@@ -100,7 +109,9 @@ import(
 )
 
 func main() {
-	http.Handle("/", httpauth.SimpleBasicAuth("dave", "somepassword")(http.HandlerFunc(hello)))
+	http.Handle("/", httpauth.SimpleBasicAuth(func(user string, password string) bool {
+			return user == correctUser && password == correctPassword
+	})(http.HandlerFunc(hello)))
 	http.ListenAndServe(":7000", nil)
 }
 ```

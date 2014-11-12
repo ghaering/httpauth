@@ -8,10 +8,15 @@ import (
 
 func TestBasicAuthAuthenticate(t *testing.T) {
 	// Provide a minimal test implementation.
+
+	const correctUser = "test-user"
+	const correctPassword = "plain-text-password"
+
 	authOpts := AuthOptions{
-		Realm:    "Restricted",
-		User:     "test-user",
-		Password: "plain-text-password",
+		Realm: "Restricted",
+		AuthFunc: func(user string, password string) bool {
+			return user == correctUser && password == correctPassword
+		},
 	}
 
 	b := &basicAuth{
@@ -36,7 +41,7 @@ func TestBasicAuthAuthenticate(t *testing.T) {
 	}
 
 	// Test correct credentials
-	auth := base64.StdEncoding.EncodeToString([]byte(b.opts.User + ":" + b.opts.Password))
+	auth := base64.StdEncoding.EncodeToString([]byte(correctUser + ":" + correctPassword))
 	r.Header.Set("Authorization", "Basic "+auth)
 	if b.authenticate(r) != true {
 		t.Fatal("Failed on correct credentials")

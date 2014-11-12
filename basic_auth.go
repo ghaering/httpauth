@@ -2,8 +2,6 @@ package httpauth
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -21,8 +19,7 @@ type basicAuth struct {
 // default error handler if you wish to serve a custom template/response.
 type AuthOptions struct {
 	Realm               string
-	User                string
-	Password            string
+	AuthFunc            func(string, string) bool
 	UnauthorizedHandler http.Handler
 }
 
@@ -66,24 +63,10 @@ func (b *basicAuth) authenticate(r *http.Request) bool {
 	// allowable characters in the password.
 	creds := bytes.SplitN(str, []byte(":"), 2)
 
-	// Equalize lengths of supplied and required credentials
-	// by hashing them
-	givenUser := sha256.Sum256(creds[0])
-	givenPass := sha256.Sum256(creds[1])
-	requiredUser := sha256.Sum256([]byte(b.opts.User))
-	requiredPass := sha256.Sum256([]byte(b.opts.Password))
+	givenUser := string(creds[0])
+	givenPass := string(creds[1])
 
-	if len(creds) != 2 {
-		return false
-	}
-
-	// Compare the supplied credentials to those set in our options
-	if subtle.ConstantTimeCompare(givenUser[:], requiredUser[:]) == 1 &&
-		subtle.ConstantTimeCompare(givenPass[:], requiredPass[:]) == 1 {
-		return true
-	}
-
-	return false
+	return b.opts.AuthFunc(string(givenUser), string(givenPass))
 }
 
 // Require authentication, and serve our error handler otherwise.
@@ -150,11 +133,10 @@ func BasicAuth(o AuthOptions) func(http.Handler) http.Handler {
 //          goji.Get("/thing", myHandler)
 //      }
 //
-func SimpleBasicAuth(user, password string) func(http.Handler) http.Handler {
+func SimpleBasicAuth(authFunc func(string, string) bool) func(http.Handler) http.Handler {
 	opts := AuthOptions{
 		Realm:    "Restricted",
-		User:     user,
-		Password: password,
+		AuthFunc: authFunc,
 	}
 	return BasicAuth(opts)
 }
